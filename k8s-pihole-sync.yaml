@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pihole-sync-website
+  namespace: tools
+  labels:
+    app: pihole-sync-website
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pihole-sync-website
+  template:
+    metadata:
+      labels:
+        app: pihole-sync-website
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k3s-cp-01
+      containers:
+        - name: web
+          image: python:3.11-alpine
+          command: ["python3", "/app/app.py"]
+          env:
+            - name: PORT
+              value: "8080"
+            - name: PVE_AGENT_URL
+              value: "http://192.168.0.30:8765"
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: appdata
+              mountPath: /app
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 48Mi
+            limits:
+              cpu: 300m
+              memory: 192Mi
+      volumes:
+        - name: appdata
+          hostPath:
+            path: /var/lib/appdata/pihole-sync-website
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pihole-sync-website-svc
+  namespace: tools
+  labels:
+    app: pihole-sync-website
+spec:
+  type: NodePort
+  selector:
+    app: pihole-sync-website
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30101

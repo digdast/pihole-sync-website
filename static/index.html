@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pi-hole & Nebula-Sync Control Center | ERTECHLab</title>
+  <meta name="description" content="Enterprise Proxmox VE Dynamic Guest DNS Auto-Injector & Pi-hole v6 Nebula-Sync Cluster Orchestrator" />
+
+  <!-- Google AdSense with Page-Level Auto-Ads -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1596056523034714"
+     crossorigin="anonymous"></script>
+  <script>
+    (adsbygoogle = window.adsbygoogle || []).push({
+      google_ad_client: "ca-pub-1596056523034714",
+      enable_page_level_ads: true
+    });
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at 15% 10%, rgba(16, 185, 129, 0.10), transparent 35%),
+                  radial-gradient(circle at 85% 15%, rgba(56, 189, 248, 0.10), transparent 35%),
+                  #070b14;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      transition: all 0.2s ease;
+    }
+    .glass-card:hover {
+      border-color: rgba(56, 189, 248, 0.35);
+      box-shadow: 0 8px 30px -10px rgba(14, 165, 233, 0.18);
+    }
+    .ad-container {
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(148, 163, 184, 0.08);
+      border-radius: 0.75rem;
+      padding: 0.5rem;
+      margin: 1rem 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
+
+  <!-- Top Navbar -->
+  <header class="sticky top-0 z-40 glass border-b border-slate-800/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <svg class="w-6 h-6 text-slate-950" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2.5">
+            <h1 class="text-lg font-bold tracking-tight text-white">Pi-hole & Nebula-Sync Control Plane</h1>
+            <span id="live-pill" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              LIVE
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Proxmox VE Dynamic Guest DNS Auto-Injector (`192.168.0.2`) &bull; Multi-Node Pi-hole v6 Nebula-Sync Orchestrator</p>
+        </div>
+      </div>
+
+      <!-- Sync Trigger Buttons -->
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button onclick="triggerSync('pve')" id="btn-sync-pve" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Sync PVE Guests &rarr; Pi-hole
+        </button>
+        <button onclick="triggerSync('nebula')" id="btn-sync-nebula" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+          Run Nebula-Sync Now
+        </button>
+        <button onclick="triggerSync('full')" id="btn-sync-full" class="px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-lg shadow-emerald-500/20 transition flex items-center gap-2">
+          <svg id="sync-spinner" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Sync Full Pipeline Now
+        </button>
+        <a href="https://dashboard.ertechlab.com" class="px-3 py-2 rounded-lg text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 transition">
+          Command Center &nearr;
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Status Banner / Toast -->
+    <div id="toast-banner" class="hidden rounded-xl p-4 border text-sm font-medium flex items-center justify-between"></div>
+
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="glass-card rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Primary Pi-hole (`192.168.0.2`)</span>
+          <span id="kpi-primary-badge" class="px-2 py-0.5 text-[11px] font-bold rounded bg-emerald-500/20 text-emerald-400">ONLINE</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-primary-queries" class="text-2xl font-extrabold text-white mono">--</span>
+          <span class="text-xs text-slate-400">queries (<span id="kpi-primary-blocked" class="text-emerald-400">--%</span> blocked)</span>
+        </div>
+        <div class="mt-2 text-xs text-slate-400 flex items-center justify-between">
+          <span>LXC 300 @ `pve-00`</span>
+          <span id="kpi-primary-latency" class="mono text-cyan-400">-- ms</span>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Nebula-Sync Cluster</span>
+          <span id="kpi-nebula-badge" class="px-2 py-0.5 text-[11px] font-bold rounded bg-cyan-500/20 text-cyan-300">IN SYNC</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-nebula-count" class="text-2xl font-extrabold text-white mono">1 + 2</span>
+          <span class="text-xs text-slate-400">Primary + Replicas</span>
+        </div>
+        <div class="mt-2 text-xs text-slate-400 flex items-center justify-between">
+          <span>Schedule: <code id="kpi-nebula-cron" class="text-purple-300 mono">0 * * * *</code></span>
+          <span id="kpi-nebula-svc" class="text-emerald-400 font-medium">systemd: active</span>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Auto-Injected PVE Guests</span>
+          <span id="kpi-pve-watcher" class="px-2 py-0.5 text-[11px] font-bold rounded bg-emerald-500/20 text-emerald-400">WATCHING `/etc/pve`</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-pve-guests" class="text-2xl font-extrabold text-white mono">--</span>
+          <span class="text-xs text-slate-400">VMs &amp; LXCs across 5 PVE nodes</span>
+        </div>
+        <div class="mt-2 text-xs text-slate-400 flex items-center justify-between">
+          <span>Total DNS Hosts: <strong id="kpi-total-dns" class="text-white mono">--</strong></span>
+          <span id="kpi-state-hash" class="mono text-slate-500">hash: --</span>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Last Sync Activity</span>
+          <span id="kpi-last-status" class="px-2 py-0.5 text-[11px] font-bold rounded bg-emerald-500/20 text-emerald-400">SUCCESS</span>
+        </div>
+        <div class="mt-2">
+          <div id="kpi-last-action" class="text-sm font-bold text-white truncate">--</div>
+          <div id="kpi-last-time" class="text-xs text-slate-400 mono mt-0.5">--</div>
+        </div>
+        <div class="mt-2 text-xs text-slate-400 flex items-center justify-between">
+          <span>Duration: <strong id="kpi-last-dur" class="text-cyan-300 mono">--s</strong></span>
+          <button onclick="document.getElementById('logs-section').scrollIntoView({behavior:'smooth'})" class="text-cyan-400 hover:underline">View Logs &darr;</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Responsive Display Ad Unit -->
+    <div class="ad-container">
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-1596056523034714"
+           data-ad-slot="auto"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>
+           (adsbygoogle = window.adsbygoogle || []).push({});
+      </script>
+    </div>
+
+    <!-- Section 1: Nebula-Sync Node Topology & Add Node Manager -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Left 2 cols: Active Nebula-Sync Nodes -->
+      <div class="lg:col-span-2 glass rounded-2xl p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
+              Nebula-Sync Pi-hole Nodes (Primary &amp; Replicas)
+            </h2>
+            <p class="text-xs text-slate-400">Real-time Pi-hole v6 API telemetry, authentication status, and local DNS parity verification</p>
+          </div>
+          <button onclick="loadStatus()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+            Refresh Telemetry
+          </button>
+        </div>
+
+        <!-- Primary Node Container -->
+        <div>
+          <div class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2">Primary Source Node (Master)</div>
+          <div id="primary-node-card" class="glass-card rounded-xl p-4 border-l-4 border-l-emerald-500">
+            Loading primary node...
+          </div>
+        </div>
+
+        <!-- Replica Nodes Container -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-cyan-400">Replica Target Nodes (Synced via Nebula-Sync)</span>
+            <span id="replicas-summary" class="text-xs text-slate-400 mono"></span>
+          </div>
+          <div id="replica-nodes-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            Loading replica nodes...
+          </div>
+        </div>
+
+        <!-- Nebula-Sync Global Settings Bar -->
+        <div class="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-4 text-xs">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="cfg-full-sync" class="rounded bg-slate-800 border-slate-600 text-emerald-500 focus:ring-emerald-500" />
+              <span class="text-slate-300 font-medium">FULL_SYNC (Teleporter + Configs)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="cfg-run-gravity" class="rounded bg-slate-800 border-slate-600 text-emerald-500 focus:ring-emerald-500" />
+              <span class="text-slate-300 font-medium">RUN_GRAVITY on Sync</span>
+            </label>
+            <div class="flex items-center gap-1.5">
+              <span class="text-slate-400">CRON:</span>
+              <input type="text" id="cfg-cron" class="w-28 px-2 py-1 rounded bg-slate-900 border border-slate-700 text-white mono text-xs" placeholder="0 * * * *" />
+            </div>
+          </div>
+          <button onclick="saveNebulaSettings()" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 transition">
+            Save Nebula-Sync Settings
+          </button>
+        </div>
+      </div>
+
+      <!-- Right 1 col: Add Pi-hole Node to Nebula-Sync -->
+      <div class="glass rounded-2xl p-5 space-y-4">
+        <div class="border-b border-slate-800 pb-3">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            Add Pi-hole Node to Nebula-Sync
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Register a new Pi-hole v6 instance as a Nebula-Sync Replica or update Primary source credentials</p>
+        </div>
+
+        <form onsubmit="addNebulaNode(event)" class="space-y-3.5">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Pi-hole Node URL or IPv4 Address *</label>
+            <input type="text" id="add-node-url" required placeholder="http://192.168.0.8 or 192.168.0.8"
+                   class="w-full px-3 py-2 rounded-lg bg-slate-900/90 border border-slate-700 text-sm text-white mono focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Node Label / Hostname</label>
+            <input type="text" id="add-node-label" placeholder="e.g. pihole-03.ertech.home (LXC 303)"
+                   class="w-full px-3 py-2 rounded-lg bg-slate-900/90 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Pi-hole API / Web Password</label>
+              <input type="password" id="add-node-pw" value="sone_420" placeholder="sone_420"
+                     class="w-full px-3 py-2 rounded-lg bg-slate-900/90 border border-slate-700 text-sm text-white mono focus:outline-none focus:border-emerald-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Node Role</label>
+              <select id="add-node-role" class="w-full px-3 py-2 rounded-lg bg-slate-900/90 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500">
+                <option value="replica">Replica (Target)</option>
+                <option value="primary">Primary (Source)</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-1">
+            <input type="checkbox" id="add-node-autosync" checked class="rounded bg-slate-800 border-slate-600 text-emerald-500" />
+            Trigger immediate Nebula-Sync replication after adding node
+          </label>
+
+          <!-- Test Probe Result Box -->
+          <div id="probe-result-box" class="hidden rounded-lg p-3 text-xs mono border"></div>
+
+          <div class="flex items-center gap-2.5 pt-1">
+            <button type="button" onclick="testNebulaNode()" id="btn-test-node"
+                    class="flex-1 px-3 py-2.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 transition">
+              Test API Connection
+            </button>
+            <button type="submit" id="btn-add-node"
+                    class="flex-1 px-3 py-2.5 rounded-lg text-xs font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-md transition">
+              + Add to Nebula-Sync
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Section 2: Proxmox VE Auto-Injected Guests & Static DNS Table -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Auto-Injected PVE Guests (2 cols) -->
+      <div class="lg:col-span-2 glass rounded-2xl p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              Auto-Injected Proxmox VE Guests (`/etc/pve/nodes/*`)
+            </h2>
+            <p class="text-xs text-slate-400">Dynamically discovered VMs &amp; LXCs injected into Pi-hole (`192.168.0.2`) whenever a guest is created or updated</p>
+          </div>
+          <input type="text" id="guest-search" oninput="renderGuests()" placeholder="Filter by VMID, node, IP, hostname..."
+                 class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white mono focus:outline-none focus:border-cyan-500 w-64" />
+        </div>
+
+        <div class="overflow-x-auto max-h-96">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[11px]">
+                <th class="py-2.5 px-3">Guest ID</th>
+                <th class="py-2.5 px-3">Type</th>
+                <th class="py-2.5 px-3">PVE Host</th>
+                <th class="py-2.5 px-3">IPv4 Address</th>
+                <th class="py-2.5 px-3">Auto-Injected DNS Hostname</th>
+                <th class="py-2.5 px-3 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody id="pve-guests-tbody" class="divide-y divide-slate-800/60 mono">
+              <tr><td colspan="6" class="py-6 text-center text-slate-500">Loading Proxmox VE guests...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Custom Static DNS Records Manager (1 col) -->
+      <div class="glass rounded-2xl p-5 space-y-4">
+        <div class="border-b border-slate-800 pb-3">
+          <h2 class="text-base font-bold text-white">Static &amp; Infrastructure DNS</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Preserved static records synced alongside PVE guests</p>
+        </div>
+
+        <form onsubmit="addStaticDns(event)" class="flex gap-2">
+          <input type="text" id="static-ip" required placeholder="192.168.0.x"
+                 class="w-28 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white mono" />
+          <input type="text" id="static-fqdn" required placeholder="host.ertech.home"
+                 class="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white mono" />
+          <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition">
+            Add
+          </button>
+        </form>
+
+        <div id="static-dns-list" class="space-y-1.5 max-h-80 overflow-y-auto pr-1 mono text-xs">
+          Loading static DNS records...
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Live Sync Execution Logs & Nebula-Sync Journal -->
+    <section id="logs-section" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="glass rounded-2xl p-5 space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-white">Sync Execution History &amp; Output</h2>
+            <p class="text-xs text-slate-400">Recent PVE Guest DNS Auto-Injector &amp; Nebula-Sync runs</p>
+          </div>
+          <span class="text-xs text-slate-400 mono" id="last-updated-ts"></span>
+        </div>
+        <div id="sync-history-list" class="space-y-3 max-h-96 overflow-y-auto pr-1">
+          Loading sync history...
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-5 space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-white">`nebula-sync.service` Live Systemd Journal</h2>
+            <p class="text-xs text-slate-400">Direct journal output from LXC 300 (`pihole-01` @ `192.168.0.2`)</p>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-500/20 text-purple-300 mono">LXC 300</span>
+        </div>
+        <pre id="nebula-journal-box" class="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 text-[11px] text-emerald-300 mono overflow-x-auto max-h-96 leading-relaxed">Loading journalctl...</pre>
+      </div>
+    </section>
+
+    <!-- Bottom Responsive Display Ad Unit -->
+    <div class="ad-container">
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-1596056523034714"
+           data-ad-slot="auto"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>
+           (adsbygoogle = window.adsbygoogle || []).push({});
+      </script>
+    </div>
+
+  </main>
+
+  <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-slate-500 border-t border-slate-900">
+    ERTECHLab Sovereign Infrastructure &bull; Proxmox VE 5-Node Cluster + 10-Node K3s HA + Pi-hole v6 Nebula-Sync Control Plane (`pihole-sync.ertechlab.com`)
+  </footer>
+
+  <script>
+    let STATE = null;
+
+    function showToast(msg, ok = true) {
+      const el = document.getElementById('toast-banner');
+      el.className = `rounded-xl p-3.5 border text-xs font-medium flex items-center justify-between ${
+        ok ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200' : 'bg-rose-500/15 border-rose-500/40 text-rose-200'
+      }`;
+      el.innerHTML = `<span>${msg}</span><button onclick="this.parentElement.classList.add('hidden')" class="ml-4 text-slate-400 hover:text-white">&times;</button>`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 8000);
+    }
+
+    function renderNodeCard(node, isPrimary = false) {
+      if (!node) return '<div class="text-xs text-slate-500">Not configured</div>';
+      const onlineBadge = node.online
+        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">ONLINE</span>`
+        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400">OFFLINE</span>`;
+      const authBadge = node.auth_valid
+        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300">AUTH OK</span>`
+        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">AUTH ERR</span>`;
+      const syncBadge = !isPrimary
+        ? (node.in_sync
+            ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300">IN SYNC (${node.dns_records_count} DNS)</span>`
+            : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">DRIFT (${node.dns_records_count} DNS)</span>`)
+        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300">${node.dns_records_count} DNS RECORDS</span>`;
+
+      const removeBtn = !isPrimary
+        ? `<button onclick="removeNebulaNode('${node.url}')" class="px-2.5 py-1 rounded text-[11px] font-medium bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition">Remove</button>`
+        : '';
+
+      return `
+        <div class="${isPrimary ? '' : 'glass-card rounded-xl p-4 border-l-4 border-l-cyan-500'} space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div class="text-sm font-bold text-white flex items-center gap-2">
+                <span>${node.label || node.host}</span>
+              </div>
+              <div class="text-xs text-slate-400 mono">${node.url}</div>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              ${onlineBadge}
+              ${authBadge}
+              ${syncBadge}
+            </div>
+          </div>
+          <div class="grid grid-cols-4 gap-2 pt-2 border-t border-slate-800/70 text-xs">
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Gravity Blocklist</span>
+              <span class="text-purple-300 font-semibold mono">${(node.domains_being_blocked || 0).toLocaleString()}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Queries Today</span>
+              <span class="text-white font-semibold mono">${(node.queries_total || 0).toLocaleString()}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Blocked</span>
+              <span class="text-emerald-400 font-semibold mono">${(node.queries_blocked || 0).toLocaleString()} (${node.percent_blocked || 0}%)</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">API Latency</span>
+              <span class="text-cyan-300 font-semibold mono">${node.latency_ms || 0} ms</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <a href="${node.url}/admin/" target="_blank" rel="noopener" class="text-xs text-cyan-400 hover:underline font-medium">Open Pi-hole Admin &nearr;</a>
+            ${removeBtn}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderGuests() {
+      if (!STATE) return;
+      const q = (document.getElementById('guest-search').value || '').toLowerCase().trim();
+      const tbody = document.getElementById('pve-guests-tbody');
+      const guests = (STATE.pve_guests || []).filter(g => {
+        if (!q) return true;
+        return String(g.vmid).includes(q) || g.type.toLowerCase().includes(q) || g.node.toLowerCase().includes(q) || g.ip.includes(q) || g.fqdn.toLowerCase().includes(q);
+      });
+      if (!guests.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-500">No matching PVE guests found</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = guests.map(g => `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="py-2 px-3 font-bold text-white">${g.vmid}</td>
+          <td class="py-2 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${g.type === 'qemu' ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300'} uppercase">${g.type}</span>
+          </td>
+          <td class="py-2 px-3 text-slate-300">${g.node}</td>
+          <td class="py-2 px-3 text-cyan-300 font-medium">${g.ip}</td>
+          <td class="py-2 px-3 text-emerald-300 font-medium">${g.fqdn}</td>
+          <td class="py-2 px-3 text-right">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400">AUTO-INJECTED</span>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        STATE = data;
+
+        const p = data.nebula?.primary || {};
+        const replicas = data.nebula?.replicas || [];
+
+        document.getElementById('kpi-primary-badge').textContent = p.online ? 'ONLINE' : 'OFFLINE';
+        document.getElementById('kpi-primary-queries').textContent = (p.queries_total || 0).toLocaleString();
+        document.getElementById('kpi-primary-blocked').textContent = `${p.percent_blocked || 0}%`;
+        document.getElementById('kpi-primary-latency').textContent = `${p.latency_ms || 0} ms`;
+
+        const allInSync = replicas.every(r => r.in_sync);
+        const nebBadge = document.getElementById('kpi-nebula-badge');
+        nebBadge.textContent = allInSync ? 'ALL IN SYNC' : 'SYNC NEEDED';
+        nebBadge.className = `px-2 py-0.5 text-[11px] font-bold rounded ${allInSync ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'}`;
+        document.getElementById('kpi-nebula-count').textContent = `1 + ${replicas.length}`;
+        document.getElementById('kpi-nebula-cron').textContent = data.nebula?.cron || '0 * * * *';
+        document.getElementById('kpi-nebula-svc').textContent = `systemd: ${data.daemons?.nebula_sync_service || 'active'}`;
+
+        document.getElementById('kpi-pve-guests').textContent = (data.pve_guests || []).length;
+        document.getElementById('kpi-total-dns').textContent = (data.all_dns_records || []).length;
+        document.getElementById('kpi-state-hash').textContent = `sha256: ${data.daemons?.state_hash || '--'}`;
+
+        const lastHist = (data.history || [])[0];
+        if (lastHist) {
+          document.getElementById('kpi-last-action').textContent = lastHist.action;
+          document.getElementById('kpi-last-time').textContent = lastHist.timestamp;
+          document.getElementById('kpi-last-dur').textContent = `${lastHist.duration_s}s`;
+          const stEl = document.getElementById('kpi-last-status');
+          stEl.textContent = lastHist.status.toUpperCase();
+        }
+
+        document.getElementById('primary-node-card').innerHTML = renderNodeCard(p, true);
+        document.getElementById('replicas-summary').textContent = `${replicas.filter(r => r.in_sync).length}/${replicas.length} replicas in sync`;
+        document.getElementById('replica-nodes-grid').innerHTML = replicas.length
+          ? replicas.map(r => renderNodeCard(r, false)).join('')
+          : '<div class="text-xs text-slate-400 col-span-2 py-4">No replica nodes configured yet. Use the form on the right to add one.</div>';
+
+        document.getElementById('cfg-full-sync').checked = !!data.nebula?.full_sync;
+        document.getElementById('cfg-run-gravity').checked = !!data.nebula?.run_gravity;
+        document.getElementById('cfg-cron').value = data.nebula?.cron || '0 * * * *';
+
+        renderGuests();
+
+        // Render Static DNS list
+        const statics = (data.all_dns_records || []).filter(r => r.source === 'static');
+        document.getElementById('static-dns-list').innerHTML = statics.map(s => `
+          <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-900/70 border border-slate-800">
+            <div>
+              <span class="text-cyan-300 font-medium">${s.ip}</span>
+              <span class="text-slate-400 mx-1.5">&rarr;</span>
+              <span class="text-white">${s.fqdn}</span>
+            </div>
+            <button onclick="removeStaticDns('${s.fqdn}')" class="text-slate-500 hover:text-rose-400 font-bold px-1" title="Remove static record">&times;</button>
+          </div>
+        `).join('');
+
+        // Render History
+        document.getElementById('last-updated-ts').textContent = data.timestamp;
+        document.getElementById('sync-history-list').innerHTML = (data.history || []).map(h => `
+          <div class="rounded-xl bg-slate-950/80 border border-slate-800 p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-white">${h.action}</span>
+              <div class="flex items-center gap-2 mono">
+                <span class="text-cyan-300">${h.duration_s}s</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${h.status === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">${h.status.toUpperCase()}</span>
+              </div>
+            </div>
+            <div class="text-[11px] text-slate-400 mono">${h.timestamp}</div>
+            ${h.output ? `<pre class="text-[11px] text-slate-300 mono bg-slate-900/90 p-2.5 rounded-lg overflow-x-auto whitespace-pre-wrap">${h.output}</pre>` : ''}
+          </div>
+        `).join('');
+
+        document.getElementById('nebula-journal-box').textContent = data.nebula_journal || 'No journal entries.';
+      } catch (e) {
+        console.error('Status fetch error:', e);
+      }
+    }
+
+    async function triggerSync(mode) {
+      const spinner = document.getElementById('sync-spinner');
+      spinner.classList.add('animate-spin');
+      showToast(`Running ${mode.toUpperCase()} sync pipeline...`, true);
+      try {
+        const res = await fetch('/api/sync', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ mode })
+        });
+        const data = await res.json();
+        showToast(
+          data.ok
+            ? `${data.entry?.action || 'Sync'} completed in ${data.entry?.duration_s || 0}s!`
+            : `Sync reported an error — check execution logs below.`,
+          !!data.ok
+        );
+        await loadStatus();
+      } catch (e) {
+        showToast(`Failed to trigger sync: ${e}`, false);
+      } finally {
+        spinner.classList.remove('animate-spin');
+      }
+    }
+
+    async function testNebulaNode() {
+      const url = document.getElementById('add-node-url').value.trim();
+      const password = document.getElementById('add-node-pw').value;
+      const label = document.getElementById('add-node-label').value.trim();
+      const box = document.getElementById('probe-result-box');
+      if (!url) {
+        showToast('Enter a Pi-hole URL or IP address first.', false);
+        return;
+      }
+      box.className = 'rounded-lg p-3 text-xs mono border bg-slate-900 border-slate-700 text-slate-300';
+      box.textContent = `Probing ${url}/api/auth ...`;
+      box.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/nebula/test-node', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ url, password, label })
+        });
+        const data = await res.json();
+        const p = data.probe || {};
+        if (data.ok) {
+          box.className = 'rounded-lg p-3 text-xs mono border bg-emerald-500/15 border-emerald-500/40 text-emerald-200';
+          box.innerHTML = `[OK] Connected to ${p.url} (${p.latency_ms}ms) &bull; Auth: VALID &bull; Local DNS Records: ${p.dns_records_count} &bull; Queries: ${p.queries_total}`;
+        } else {
+          box.className = 'rounded-lg p-3 text-xs mono border bg-rose-500/15 border-rose-500/40 text-rose-200';
+          box.innerHTML = `[FAIL] Online=${p.online} Auth=${p.auth_valid} ${p.error ? '(' + p.error + ')' : ''}`;
+        }
+      } catch (e) {
+        box.className = 'rounded-lg p-3 text-xs mono border bg-rose-500/15 border-rose-500/40 text-rose-200';
+        box.textContent = `Error: ${e}`;
+      }
+    }
+
+    async function addNebulaNode(ev) {
+      ev.preventDefault();
+      const url = document.getElementById('add-node-url').value.trim();
+      const label = document.getElementById('add-node-label').value.trim();
+      const password = document.getElementById('add-node-pw').value;
+      const role = document.getElementById('add-node-role').value;
+      const auto_sync = document.getElementById('add-node-autosync').checked;
+
+      showToast(`Adding ${url} to Nebula-Sync (${role})...`, true);
+      try {
+        const res = await fetch('/api/nebula/add-node', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ url, label, password, role, auto_sync })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`Successfully added ${url} to Nebula-Sync${auto_sync ? ' and completed full replication!' : '!'}`, true);
+          document.getElementById('add-node-url').value = '';
+          document.getElementById('add-node-label').value = '';
+          document.getElementById('probe-result-box').classList.add('hidden');
+          await loadStatus();
+        } else {
+          showToast(`Failed to add node: ${data.error || data.message}`, false);
+        }
+      } catch (e) {
+        showToast(`Request error: ${e}`, false);
+      }
+    }
+
+    async function removeNebulaNode(url) {
+      if (!confirm(`Remove replica node ${url} from Nebula-Sync?`)) return;
+      try {
+        const res = await fetch('/api/nebula/remove-node', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+        showToast(data.ok ? `Removed ${url} from Nebula-Sync.` : `Error: ${data.message}`, !!data.ok);
+        await loadStatus();
+      } catch (e) {
+        showToast(`Error removing node: ${e}`, false);
+      }
+    }
+
+    async function saveNebulaSettings() {
+      const full_sync = document.getElementById('cfg-full-sync').checked;
+      const run_gravity = document.getElementById('cfg-run-gravity').checked;
+      const cron = document.getElementById('cfg-cron').value.trim();
+      try {
+        const res = await fetch('/api/nebula/settings', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ full_sync, run_gravity, cron })
+        });
+        const data = await res.json();
+        showToast(data.ok ? 'Saved Nebula-Sync settings and restarted service!' : `Failed: ${data.message}`, !!data.ok);
+        await loadStatus();
+      } catch (e) {
+        showToast(`Error saving settings: ${e}`, false);
+      }
+    }
+
+    async function addStaticDns(ev) {
+      ev.preventDefault();
+      const ip = document.getElementById('static-ip').value.trim();
+      const fqdn = document.getElementById('static-fqdn').value.trim();
+      try {
+        const res = await fetch('/api/dns/static-add', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ ip, fqdn })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          document.getElementById('static-ip').value = '';
+          document.getElementById('static-fqdn').value = '';
+          showToast(`Added ${ip} -> ${fqdn} and replicated across Nebula-Sync!`, true);
+          await loadStatus();
+        } else {
+          showToast(`Error: ${data.error}`, false);
+        }
+      } catch (e) {
+        showToast(`Error adding static DNS: ${e}`, false);
+      }
+    }
+
+    async function removeStaticDns(fqdn) {
+      if (!confirm(`Delete static DNS record ${fqdn}?`)) return;
+      try {
+        const res = await fetch('/api/dns/static-remove', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ fqdn })
+        });
+        await res.json();
+        showToast(`Removed ${fqdn} and synced cluster.`, true);
+        await loadStatus();
+      } catch (e) {
+        showToast(`Error removing static DNS: ${e}`, false);
+      }
+    }
+
+    loadStatus();
+    setInterval(loadStatus, 15000);
+  </script>
+</body>
+</html>
