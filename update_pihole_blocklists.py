@@ -18,7 +18,7 @@ import paramiko
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-PVE00_IP = "192.168.0.30"
+PVE00_IP = "192.168.40.30"
 PVE00_USER = "root"
 PVE00_PW = "sone_420"
 

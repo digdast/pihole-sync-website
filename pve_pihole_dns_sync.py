@@ -10,7 +10,7 @@ so LAN browsers never receive Cloudflare ECH / IPv6 records for proxied domains.
 
 Can run:
   1. Directly on Proxmox (e.g. via systemd .path + .timer on pve-00)
-  2. Remotely from Windows/workstation via SSH (--remote 192.168.0.30)
+  2. Remotely from Windows/workstation via SSH (--remote 192.168.40.30)
 """
 
 import argparse
@@ -43,12 +43,12 @@ REQUIRED_DNSMASQ_LINES = [
 # Baseline static infrastructure & NPM reverse-proxy hosts that must ALWAYS resolve to their exact IPs
 STATIC_INFRA_HOSTS = [
     # Proxmox VE cluster nodes (.ertech.home direct IPs)
-    ("192.168.0.30", "pve-00.ertech.home"),
-    ("192.168.0.30", "pve-cluster-01"),
-    ("192.168.0.31", "pve-01.ertech.home"),
-    ("192.168.0.32", "pve-02.ertech.home"),
-    ("192.168.0.33", "pve-03.ertech.home"),
-    ("192.168.0.34", "pve-04.ertech.home"),
+    ("192.168.40.30", "pve-00.ertech.home"),
+    ("192.168.40.30", "pve-cluster-01"),
+    ("192.168.40.31", "pve-01.ertech.home"),
+    ("192.168.40.32", "pve-02.ertech.home"),
+    ("192.168.40.33", "pve-03.ertech.home"),
+    ("192.168.40.34", "pve-04.ertech.home"),
     # Pi-hole DNS nodes (.ertech.home direct IPs)
     ("192.168.0.2", "pihole-01.ertech.home"),
     ("192.168.0.5", "pihole-02.ertech.home"),
@@ -475,13 +475,13 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force Pi-hole verification/write even if state cache matches.")
     parser.add_argument("--quiet", action="store_true", help="Only log when DNS records actually change.")
     parser.add_argument("--no-nebula", action="store_true", help="Skip inline Nebula-Sync trigger (used when caller runs Nebula-Sync separately).")
-    parser.add_argument("--remote", default="", help="Run via SSH on the specified PVE host (e.g. 192.168.0.30).")
+    parser.add_argument("--remote", default="", help="Run via SSH on the specified PVE host (e.g. 192.168.40.30).")
     parser.add_argument("--user", default="root", help="SSH username when using --remote.")
     parser.add_argument("--password", default="sone_420", help="SSH password when using --remote.")
     args = parser.parse_args()
 
     if args.remote or sys.platform == "win32":
-        target = args.remote or "192.168.0.30"
+        target = args.remote or "192.168.40.30"
         sys.exit(run_remote_from_workstation(target, args.user, args.password, args.force))
     else:
         sys.exit(sync_on_pve(force=args.force, quiet=args.quiet, no_nebula=args.no_nebula))

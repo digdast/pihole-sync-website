@@ -3,7 +3,7 @@
 pihole-sync.ertechlab.com — K3s Web Application Frontend & API Gateway
 ======================================================================
 Serves the Pi-hole & Nebula-Sync Control Center UI, /ads.txt, /healthz,
-and proxies /api/* calls to the PVE & Nebula-Sync Control Agent at 192.168.0.30:8765.
+and proxies /api/* calls to the PVE & Nebula-Sync Control Agent at 192.168.40.30:8765.
 """
 
 import http.server
@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 
 PORT = int(os.environ.get("PORT", 8080))
-AGENT_URL = os.environ.get("AGENT_URL", "http://192.168.0.30:8765")
+AGENT_URL = os.environ.get("AGENT_URL", "http://192.168.40.30:8765")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 ADS_TXT = "google.com, pub-1596056523034714, DIRECT, f08c47fec0942fa0\n"

@@ -3,7 +3,7 @@
 End-to-End Deployment Script for https://pihole-sync.ertechlab.com
 ==================================================================
 1. Deploys /usr/local/bin/pve-pihole-dns-sync.py & /usr/local/bin/pve-pihole-sync-agent.py
-   and pve-pihole-sync-agent.service (port 8765) onto pve-00 (192.168.0.30).
+   and pve-pihole-sync-agent.service (port 8765) onto pve-00 (192.168.40.30).
 2. Deploys app.py, ads.txt, static/index.html, and k8s-pihole-sync.yaml onto
    k3s-cp-01 (192.168.0.80, NodePort 30101 in namespace 'tools').
 3. Configures Cloudflare DNS (pihole-sync.ertechlab.com CNAME -> tunnel),
@@ -25,7 +25,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 BASE_DIR = Path(r"C:\scripts\pihole-sync-website")
-PVE00_IP = os.environ.get("PVE00_IP", "192.168.0.30")
+PVE00_IP = os.environ.get("PVE00_IP", "192.168.40.30")
 PVE00_USER = os.environ.get("PVE00_USER", "root")
 PVE00_PW = os.environ.get("PVE00_PW", "")
 
@@ -66,7 +66,7 @@ def ssh_connect(host: str, user: str, password: str) -> paramiko.SSHClient:
 
 
 def deploy_pve_agent():
-    print("=== [1/5] Deploying pve-pihole-sync-agent on pve-00 (192.168.0.30:8765) ===")
+    print("=== [1/5] Deploying pve-pihole-sync-agent on pve-00 (192.168.40.30:8765) ===")
     ssh = ssh_connect(PVE00_IP, PVE00_USER, PVE00_PW)
     sftp = ssh.open_sftp()
 

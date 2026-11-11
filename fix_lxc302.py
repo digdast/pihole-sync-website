@@ -3,7 +3,7 @@ import paramiko
 
 s = paramiko.SSHClient()
 s.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-s.connect("192.168.0.34", username="root", password="sone_420", timeout=10)
+s.connect("192.168.40.34", username="root", password="sone_420", timeout=10)
 
 # 1. Set external nameserver on LXC 302 so gravity/OS DNS never deadlocks when FTL restarts
 s.exec_command('pct set 302 -nameserver "1.1.1.1 8.8.8.8"')[1].read()
